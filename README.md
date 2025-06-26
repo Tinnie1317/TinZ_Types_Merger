@@ -22,7 +22,7 @@ Future builds:-
 ---------!! HOW TO USE !!----------
 BEFORE CHANGING ANY FILES IT IS ADVISED YOU MAKE A BACKUP OF YOUR ORIGINAL FILES
 
-- Open the .html file
+- Open the .html file or use this link (https://tinnie1317.github.io/TinZ_Types_Merger/)
 - Upload vanilla DayZ types.xml file
   (usually located C:\Program Files (x86)\Steam\steamapps\common\DayZServer\mpmissions\dayzOffline.chernarusplus\db)
   ("dayzOffline.chernarus" will change depending on which map your server is hosting)

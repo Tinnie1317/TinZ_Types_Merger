@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DayZ types.xml Merger & Editor (Trail Version)</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; background: #111; color: #eee; }
+    input[type='file'] { margin: 0.5em 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+    td, th { border: 1px solid #444; padding: 0.5em; }
+    input[type='number'], input[type='text'] { width: 5em; }
+    button { margin: 0.5em 0; padding: 0.5em 1em; }
+    #status { margin: 1em 0; color: #0f0; }
+    #filterBar { margin: 1em 0; }
+  </style>
+</head>
+<body>
+  <h2>DayZ types.xml Merger & Editor (Trail Version)</h2>
+  <input type="file" id="baseFile" accept=".xml" /> Load Base types.xml<br/>
+  <input type="file" id="mergeFile" accept=".xml" /> Load Merge File<br/>
+  <button onclick="mergeFiles()">Merge Files</button>
+  <button onclick="exportXML()">Download Merged XML</button>
+
+  <div id="status"></div>
+  <div id="filterBar">
+    <label>Filter by name: <input type="text" id="filterInput" oninput="buildEditor()"></label>
+  </div>
+
+  <div id="editor"></div>
+
+  <script>
+    let baseDoc = null;
+
+    function parseXML(content) {
+      return new DOMParser().parseFromString(content, "text/xml");
+    }
+
+    function serializeXML(doc) {
+      return new XMLSerializer().serializeToString(doc);
+    }
+
+    document.getElementById('baseFile').addEventListener('change', async (e) => {
+      const text = await e.target.files[0].text();
+      baseDoc = parseXML(text);
+      setStatus("Base file loaded.");
+      buildEditor();
+    });
+
+    async function mergeFiles() {
+      const mergeInput = document.getElementById('mergeFile');
+      if (!mergeInput.files[0] || !baseDoc) {
+        setStatus("❌ Please upload both base and merge files.", true);
+        return;
+      }
+      const text = await mergeInput.files[0].text();
+      const mergeDoc = parseXML(text);
+      const baseTypes = baseDoc.querySelector("types");
+      const mergeTypes = mergeDoc.querySelectorAll("type");
+
+      let added = 0;
+      mergeTypes.forEach(type => {
+        const name = type.getAttribute("name");
+        const exists = baseDoc.querySelector(`type[name="${name}"]`);
+        if (!exists) {
+          baseTypes.appendChild(baseDoc.importNode(type, true));
+          added++;
+        }
+      });
+
+      setStatus(`✅ Merge complete. ${added} new types added.`);
+      buildEditor();
+    }
+
+    function buildEditor() {
+      if (!baseDoc) return;
+      const container = document.getElementById("editor");
+      const types = baseDoc.querySelectorAll("types > type");
+      const filter = document.getElementById("filterInput").value.toLowerCase();
+      let html = `<table><tr><th>Name</th><th>Nominal</th><th>Lifetime</th><th>Restock</th><th>Min</th><th>Category</th><th>Usage</th><th>Tag</th><th>Tier</th><th>Disable</th></tr>`;
+      types.forEach(type => {
+        const name = type.getAttribute("name") || "";
+        if (filter && !name.toLowerCase().includes(filter)) return;
+        const getVal = tag => type.querySelector(tag)?.textContent || "";
+        const row = `
+          <tr>
+            <td>${name}</td>
+            <td><input type="number" value="${getVal("nominal")}" onchange="updateValue('${name}','nominal', this.value)"></td>
+            <td><input type="number" value="${getVal("lifetime")}" onchange="updateValue('${name}','lifetime', this.value)"></td>
+            <td><input type="number" value="${getVal("restock")}" onchange="updateValue('${name}','restock', this.value)"></td>
+            <td><input type="number" value="${getVal("min")}" onchange="updateValue('${name}','min', this.value)"></td>
+            <td><input type="text" value="${getVal("category")}" onchange="updateValue('${name}','category', this.value)"></td>
+            <td><input type="text" value="${getVal("usage")}" onchange="updateValue('${name}','usage', this.value)"></td>
+            <td><input type="text" value="${getVal("tag")}" onchange="updateValue('${name}','tag', this.value)"></td>
+            <td><input type="text" value="${getVal("tier")}" onchange="updateValue('${name}','tier', this.value)"></td>
+            <td><button onclick="disableType('${name}')">Disable</button></td>
+          </tr>`;
+        html += row;
+      });
+      html += `</table>`;
+      container.innerHTML = html;
+    }
+
+    function updateValue(typeName, tag, value) {
+      const type = baseDoc.querySelector(`type[name="${typeName}"]`);
+      if (!type) return;
+      let el = type.querySelector(tag);
+      if (!el) {
+        el = baseDoc.createElement(tag);
+        type.appendChild(el);
+      }
+      el.textContent = value;
+    }
+
+    function disableType(typeName) {
+      const type = baseDoc.querySelector(`type[name="${typeName}"]`);
+      if (type) {
+        const zeroOut = ["nominal", "min"];
+        zeroOut.forEach(tag => updateValue(typeName, tag, 0));
+        setStatus(`Type '${typeName}' nominal and min set to 0.`);
+        buildEditor();
+      }
+    }
+
+    function exportXML() {
+      if (!baseDoc) return alert("No merged document.");
+      const blob = new Blob([serializeXML(baseDoc)], { type: "text/xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "merged_types.xml";
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus("✅ Exported merged_types.xml");
+    }
+
+    function setStatus(msg, isError = false) {
+      const status = document.getElementById("status");
+      status.style.color = isError ? '#f33' : '#0f0';
+      status.textContent = msg;
+    }
+  </script>
+</body>
+</html>
